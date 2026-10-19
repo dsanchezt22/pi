@@ -81,9 +81,11 @@ function detectCapabilitiesFromEnvironment(tmuxForwardsHyperlink: () => boolean)
 		return { images: null, trueColor: hasTrueColorHint, hyperlinks: tmuxForwardsHyperlink() };
 	}
 
-	// screen does not forward OSC 8 hyperlinks, so keep them off there.
+	// screen does not forward OSC 8 hyperlinks, so keep them off there. It also drops 24-bit color
+	// unless its `truecolor` option is on, which an inherited COLORTERM cannot tell. PI_TRUE_COLOR=1
+	// or the terminal.trueColor setting opts in.
 	if (term.startsWith("screen")) {
-		return { images: null, trueColor: hasTrueColorHint, hyperlinks: false };
+		return { images: null, trueColor: term.endsWith("-direct"), hyperlinks: false };
 	}
 
 	// Herdr forwards OSC 8 hyperlinks and supports the Kitty graphics protocol. Check it before

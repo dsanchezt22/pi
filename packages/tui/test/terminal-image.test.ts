@@ -317,6 +317,17 @@ describe("detectCapabilities", () => {
 		});
 	});
 
+	// #10618
+	it("ignores an inherited COLORTERM under screen", () => {
+		withEnv({ TERM: "screen.xterm-256color", COLORTERM: "truecolor" }, () => {
+			assert.strictEqual(detectCapabilities().trueColor, false);
+		});
+		// A direct-color terminfo entry is set inside screen, so it still counts.
+		withEnv({ TERM: "screen-direct" }, () => {
+			assert.strictEqual(detectCapabilities().trueColor, true);
+		});
+	});
+
 	// #10573
 	it("enables hyperlinks and Kitty images for Herdr", () => {
 		withEnv({ TERM_PROGRAM: "herdr", TERM: "xterm-256color", COLORTERM: "truecolor", KITTY_WINDOW_ID: "1" }, () => {
