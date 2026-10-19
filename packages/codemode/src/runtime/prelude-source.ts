@@ -159,6 +159,25 @@ export const PRELUDE_SOURCE: string = `(function (bridge, toolsJson, globalsJson
 		return value === undefined ? undefined : stringify(value);
 	}
 
+	// Plain JSON turns a nested Error into {}: name, message, cause, and errors are not own enumerable
+	// properties. One wrapper per Error keeps JSON's circular-structure check working for errors that
+	// reference themselves.
+	function serializeOutput(value) {
+		if (value === undefined) return undefined;
+		const wrappers = new Map();
+		return stringify(value, (_key, item) => {
+			if (!(item instanceof ErrorCtor)) return item;
+			let wrapper = wrappers.get(item);
+			if (!wrapper) {
+				wrapper = { ...item, name: String(item.name), message: String(item.message) };
+				if (item.cause !== undefined) wrapper.cause = item.cause;
+				if (Array.isArray(item.errors)) wrapper.errors = item.errors;
+				wrappers.set(item, wrapper);
+			}
+			return wrapper;
+		});
+	}
+
 	// QuickJS stacks list frames only. Prefix "Name: message" like V8 so the
 	// text reads the same as a Node error, and drop this prelude's frames.
 	function errorText(error) {
@@ -174,7 +193,7 @@ export const PRELUDE_SOURCE: string = `(function (bridge, toolsJson, globalsJson
 		if (typeof value === "string") return value;
 		if (value instanceof ErrorCtor) return errorText(value);
 		try {
-			const json = stringify(value);
+			const json = serializeOutput(value);
 			return json === undefined ? String(value) : json;
 		} catch {
 			return String(value);
@@ -359,7 +378,8 @@ export const PRELUDE_SOURCE: string = `(function (bridge, toolsJson, globalsJson
 		if (value === undefined || value === null || typeof value !== "object" && typeof value !== "function") {
 			return String(value);
 		}
-		const json = stringify(value);
+		if (value instanceof ErrorCtor) return errorText(value);
+		const json = serializeOutput(value);
 		return json === undefined ? String(value) : json;
 	}
 
@@ -494,7 +514,7 @@ export const PRELUDE_SOURCE: string = `(function (bridge, toolsJson, globalsJson
 				(value) => {
 					let json;
 					try {
-						json = serialize(value);
+						json = serializeOutput(value);
 					} catch (error) {
 						done(false, describeError(error));
 						return;
