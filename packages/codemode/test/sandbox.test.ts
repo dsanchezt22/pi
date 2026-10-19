@@ -355,6 +355,55 @@ describe.each(Object.keys(BACKENDS))("%s backend", (name) => {
 			expect(result.calls).toMatchObject([{ name: "fail", status: "error" }]);
 		});
 
+		// #10650
+		it("keeps the name and message of nested tool errors in output and return values", async () => {
+			const sandbox = createSandbox([
+				{ name: "ok", execute: () => 1 },
+				{
+					name: "fail",
+					execute: () => {
+						throw new Error("tool exploded");
+					},
+				},
+			]);
+			const result = await sandbox.execute(`
+				const results = await Promise.allSettled([tools.ok(), tools.fail()]);
+				text(results);
+				console.log({ errors: [results[1].reason] });
+				return results;
+			`);
+			const rejected = { status: "rejected", reason: { name: "Error", message: "tool exploded" } };
+			expect(result).toMatchObject({ ok: true, value: [{ status: "fulfilled", value: 1 }, rejected] });
+			expect(result.output).toEqual([
+				{ type: "text", text: JSON.stringify([{ status: "fulfilled", value: 1 }, rejected]) },
+				{ type: "text", text: JSON.stringify({ errors: [rejected.reason] }), console: true },
+			]);
+		});
+
+		// #10650
+		it("serializes Error causes, AggregateErrors, and self-referencing Errors", async () => {
+			const sandbox = createSandbox();
+			const result = await sandbox.execute(`
+				const inner = new Error("inner");
+				return {
+					caused: new Error("outer", { cause: inner }),
+					aggregate: new AggregateError([inner], "all failed"),
+					shared: [inner, inner],
+				};
+			`);
+			const inner = { name: "Error", message: "inner" };
+			expect(result).toMatchObject({
+				ok: true,
+				value: {
+					caused: { name: "Error", message: "outer", cause: inner },
+					aggregate: { name: "AggregateError", message: "all failed", errors: [inner] },
+					shared: [inner, inner],
+				},
+			});
+			const circular = await sandbox.execute('const e = new Error("loop"); e.self = e; return { e };');
+			expect(circular).toMatchObject({ ok: false, error: { name: "TypeError" } });
+		});
+
 		it("rejects calls to unknown tools", async () => {
 			const sandbox = createSandbox();
 			const result = await sandbox.execute("return await tools.missing()");
