@@ -366,6 +366,22 @@ describe("parseCommandArgs", () => {
 		expect(parseCommandArgs("'first arg' second")).toEqual(["first arg", "second"]);
 	});
 
+	test("should keep apostrophes and unmatched quotes as text", () => {
+		// #11861
+		expect(parseCommandArgs("why doesn't the user's cache work")).toEqual([
+			"why",
+			"doesn't",
+			"the",
+			"user's",
+			"cache",
+			"work",
+		]);
+		expect(parseCommandArgs("why doesn't this work")).toEqual(["why", "doesn't", "this", "work"]);
+		expect(parseCommandArgs("fix l'import")).toEqual(["fix", "l'import"]);
+		expect(parseCommandArgs("'it's fine' next")).toEqual(["it's fine", "next"]);
+		expect(parseCommandArgs('say "hi')).toEqual(["say", '"hi']);
+	});
+
 	test("should parse mixed quote styles", () => {
 		expect(parseCommandArgs('"double" \'single\' "double again"')).toEqual(["double", "single", "double again"]);
 	});

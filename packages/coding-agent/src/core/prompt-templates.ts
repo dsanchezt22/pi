@@ -31,14 +31,17 @@ export function parseCommandArgs(argsString: string): string[] {
 
 	for (let i = 0; i < argsString.length; i++) {
 		const char = argsString[i];
+		// An apostrophe between letters or digits ("doesn't", "l'import") is text, not a quote
+		const isApostrophe =
+			char === "'" && /[\p{L}\p{N}]/u.test(argsString[i - 1] ?? "") && /[\p{L}\p{N}]/u.test(argsString[i + 1] ?? "");
 
 		if (inQuote) {
-			if (char === inQuote) {
+			if (char === inQuote && !isApostrophe) {
 				inQuote = null;
 			} else {
 				current += char;
 			}
-		} else if (char === '"' || char === "'") {
+		} else if ((char === '"' || char === "'") && !isApostrophe && argsString.includes(char, i + 1)) {
 			inQuote = char;
 			hasToken = true;
 		} else if (/\s/.test(char)) {
