@@ -173,6 +173,8 @@ export const PRELUDE_SOURCE: string = `(function (bridge, toolsJson, globalsJson
 	function format(value) {
 		if (typeof value === "string") return value;
 		if (value instanceof ErrorCtor) return errorText(value);
+		// JSON turns NaN and Infinity into null, so primitives print the way text() prints them.
+		if (typeof value !== "object" || value === null) return String(value);
 		try {
 			const json = stringify(value);
 			return json === undefined ? String(value) : json;

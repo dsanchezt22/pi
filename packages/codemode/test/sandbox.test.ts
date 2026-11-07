@@ -254,6 +254,15 @@ describe.each(Object.keys(BACKENDS))("%s backend", (name) => {
 			expect(result).toMatchObject({ ok: false, error: { kind: "script", message: '{"code":7}' } });
 		});
 
+		it("prints NaN and Infinity in console output and throws", async () => {
+			// #11901
+			const sandbox = createSandbox();
+			const result = await sandbox.execute("console.log('avg', 0 / 0, 1 / 0, -1 / 0); return null;");
+			expect(result.output).toEqual([{ type: "text", text: "avg NaN Infinity -Infinity", console: true }]);
+			const thrown = await sandbox.execute("throw NaN");
+			expect(thrown).toMatchObject({ ok: false, error: { kind: "script", message: "NaN" } });
+		});
+
 		it("reports a non-serializable return value as a script error", async () => {
 			const sandbox = createSandbox();
 			const result = await sandbox.execute("return 10n");
